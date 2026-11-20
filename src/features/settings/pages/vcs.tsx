@@ -643,6 +643,11 @@ export const VCS_PAGES: PageSpec[] = [
             label: "Use non-modal commit interface",
             hint: "When off, Local Changes and Stash are tabs of the Git tool window and Commit opens a dialog.",
           },
+          {
+            kind: "toggle",
+            key: "vcs.commit.includeChangesByDefault",
+            label: "Include changes in the commit by default",
+          },
           { kind: "toggle", key: "vcs.commit.clearInitialMessage", label: "Clear initial commit message" },
         ],
       },
@@ -751,6 +756,12 @@ export const VCS_PAGES: PageSpec[] = [
             kind: "toggle",
             key: "vcs.showDirtyDirectories",
             label: "Highlight directories that contain modified files in the Project tree",
+          },
+          {
+            kind: "toggle",
+            key: "vcs.diffAsEditorTab",
+            label: "Open diff as editor tab",
+            hint: "When off, diffs you open (changes, history, Compare) show in a separate window.",
           },
           {
             kind: "select",
