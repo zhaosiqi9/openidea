@@ -1,4 +1,5 @@
 {
+  "Plain-text word lists (one word per line) or Hunspell .dic files; a .dic with its .aff beside it also accepts the inflected forms and compounds its rules allow. Relative paths resolve against the project root, ~/ against the home folder.": "纯文本单词列表（每行一个词）或 Hunspell .dic 文件；旁边有同名 .aff 的 .dic 还会接受其规则允许的变形和复合词。相对路径基于项目根目录解析，~/ 表示主目录。",
   "MCP server instructions": "MCP 服务器说明",
   "MCP tools (deferred)": "MCP 工具（延迟加载）",
   "System tools (deferred)": "系统工具（延迟加载）",
@@ -4104,7 +4105,6 @@
   "Accepted in every project.": "在所有项目中接受。",
   "Custom dictionaries": "自定义词典",
   "Dictionary files": "词典文件",
-  "Plain-text word lists (one word per line) or Hunspell .dic files. Relative paths resolve against the project root, ~/ against the home folder.": "纯文本单词列表（每行一个单词）或 Hunspell .dic 文件。相对路径相对于项目根目录解析，~/ 相对于主文件夹解析。",
   "No custom dictionaries": "没有自定义词典",
   "Dictionary path": "词典路径",
   "Natural Languages": "自然语言",
@@ -5285,7 +5285,6 @@
   "Configuration…": "配置…",
   "No deployment server configured": "未配置部署服务器",
   "Select files in the Project view, Commit tool window, or open a file in the editor": "请在项目视图或提交工具窗口中选择文件，或在编辑器中打开文件",
-
   "Upload to": "上传到",
   "Download from": "下载自",
   "Sync with Deployed to": "与已部署的同步",
@@ -7769,6 +7768,19 @@
   "No checksum provided: the download can't be verified.": "未提供校验和：无法校验下载的文件。",
   "Sign In": "登录",
   "New Tasks": "新任务",
+  "CLI version": "CLI 版本",
+  "Checking…": "正在检查…",
+  "Check for updates": "检查更新",
+  "Updating the npm installation…": "正在更新 npm 安装…",
+  "Installed: {0} · npm latest: {1} · {2}": "已安装：{0} · npm 最新版：{1} · {2}",
+  "Installed: {0} · npm latest: {1}. No write permission for the npm installation at {2}.": "已安装：{0} · npm 最新版：{1}。没有位于 {2} 的 npm 安装目录的写入权限。",
+  "View permission fixes": "查看权限修复方法",
+  "Updated to {0}. New sessions will use this version.": "已更新到 {0}。新会话将使用此版本。",
+  "Installed: {0} · No newer npm release.": "已安装：{0} · 没有更新的 npm 版本。",
+  "Installed: {0}. Use your installer to manage this release channel.": "已安装：{0}。请使用原安装工具管理此发布渠道。",
+  "npm could not complete the operation ({0}).": "npm 无法完成操作（{0}）。",
+  "An update for this agent is already running.": "此智能体已有更新正在进行。",
+  "This is not a global npm install OpenIDEA can update. Use its original installer.": "这不是 OpenIDEA 能更新的 npm 全局安装。请使用原安装工具更新。",
   "Coding Agents": "编程智能体",
   "Install coding agents and configure how they launch, chat and connect to the IDE.": "安装编程 Agent，并配置其启动方式、聊天行为以及与 IDE 的连接。",
   "Fork Agent Task": "Fork Agent 任务",
@@ -9160,5 +9172,10 @@
   "Cannot download to {folder}": "无法下载到 {folder}",
   "Copy the selected files and folders of a remote project to a folder on this computer": "把远程项目中选中的文件和文件夹复制到本机的文件夹",
   "{modifier}+Click to only see \"{name}\"": "{modifier}+点击仅显示“{name}”",
-  "Not a thread count Maven accepts, so builds run serially. Use a number (4) or a core multiplier (2C, 2.5C).": "Maven 不接受这个线程数，构建将串行执行。请填写数字（4）或核数倍数（2C、2.5C）。"
+  "Not a thread count Maven accepts, so builds run serially. Use a number (4) or a core multiplier (2C, 2.5C).": "Maven 不接受这个线程数，构建将串行执行。请填写数字（4）或核数倍数（2C、2.5C）。",
+  "Unknown macro {all} in the working directory. Supported: {supported}.": "工作目录中有未知的宏 {all}。支持：{supported}。",
+  "{all} is not available in a remote project.": "{all} 在远程项目中不可用。",
+  "Cannot start '{name}'": "无法启动“{name}”",
+  "Module working directory": "模块工作目录",
+  "User home directory": "用户主目录"
 }
