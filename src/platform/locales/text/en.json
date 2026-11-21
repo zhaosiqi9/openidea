@@ -1,4 +1,5 @@
 {
+  "Timeline": "Timeline",
   "At breakpoint": "At breakpoint",
   "Replacement preview": "Replacement preview",
   "Empty replacement": "Empty replacement",
@@ -42,6 +43,7 @@
   "Inspection actions": "Inspection actions",
   "Resize inspection panes": "Resize inspection panes",
   "Resize template panes": "Resize template panes",
+  "Resize bookmark panes": "Resize bookmark panes",
   "Resize branch comparison panes": "Resize branch comparison panes",
   "Resize inspection description": "Resize inspection description",
   "Color scheme options": "Color scheme options",
