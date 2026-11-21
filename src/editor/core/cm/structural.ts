@@ -15,7 +15,16 @@ import type { EditorView } from "@codemirror/view";
 import { getIndentUnit, indentString } from "@codemirror/language";
 import type { Pos, StructuralRanges, SyntaxError, SyntaxErrors, SyntaxNode } from "@/bindings";
 import { offsetToPos, posToOffset } from "@/editor/lsp/positions";
-import { SEMICOLON_LANGS, codeEnd, completeStatementSpec, lineCommentToken } from "./editing";
+import {
+  BARE_CONDITION,
+  SEMICOLON_LANGS,
+  codeEnd,
+  completeStatementSpec,
+  isBlockHead,
+  lineCommentToken,
+  recordSelectionAfter,
+  unclosedQuote,
+} from "./editing";
 
 /** The document has a real (Lezer) syntax tree, not a stream mode's flat token list or nothing. */
 export function hasLezerTree(state: EditorState): boolean {
@@ -336,6 +345,16 @@ export function planCompleteStatement(
   }
   const full = line.text.trimEnd();
   const codeTo = line.from + codeEnd(full, lineCommentToken(state, line.from));
+  const lineCode = state.sliceDoc(line.from, codeTo);
+  // A block head gets its body and an open string its quote: the parser's recovery
+  // asks for a `;` there (`if (x);`, `"text;`), which would change what the code means.
+  const nextLine = line.number < state.doc.lines ? state.doc.line(line.number + 1).text.trim() : "";
+  const finishedHead = isBlockHead(lineCode, language) && !unclosedBrackets(lineCode).length && nextLine !== "{";
+  if (
+    SEMICOLON_LANGS.has(language) &&
+    (finishedHead || BARE_CONDITION.test(lineCode) || unclosedQuote(lineCode, language))
+  )
+    return completeStatementSpec(state, language);
   const inserts: ChangeSpec[] = [];
   const lineErrors = errors?.errors.filter((e) => errorTouches(state, e, line.from, line.to)) ?? [];
   let closers = "";
@@ -429,7 +448,8 @@ export async function moveStatementStructural(
   up: boolean,
   q: StructureQueries,
 ): Promise<"done" | "fallback" | "stale"> {
-  return runPlanned(view, async () => {
+  const before = view.state.doc;
+  const result = await runPlanned(view, async () => {
     const line = view.state.doc.lineAt(view.state.selection.main.head);
     if (!line.text.trim()) return null;
     const r = await q.ranges(offsetToPos(view.state.doc, line.from));
@@ -446,6 +466,8 @@ export async function moveStatementStructural(
     const plan = planMoveStatement(view.state, r, up, errors);
     return plan.kind === "move" ? plan.spec : plan.kind === "noop" ? "noop" : null;
   });
+  if (result === "done" && view.state.doc !== before) recordSelectionAfter(view);
+  return result;
 }
 
 export async function completeStatementStructural(
