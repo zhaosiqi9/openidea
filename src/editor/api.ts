@@ -21,6 +21,7 @@ import {
   Annotation,
   Compartment,
   Facet,
+  type ChangeSet,
   type ChangeSpec,
   StateEffect,
   type EditorState,
@@ -40,7 +41,6 @@ import { rootOfPath } from "@/platform/projectRoots";
 import { isVirtualUri } from "@/platform/virtualDocs";
 import { cornerInset } from "@/editor/core/cm/cornerInset";
 export { iconAreaSource, mapLineStart, type IconAreaSource } from "@/editor/core/cm/iconArea";
-export { disambiguateTitles } from "@/editor/core/model/tabTitles";
 export {
   invalidateNavigationProviders,
   navigationEpoch,
@@ -49,7 +49,7 @@ export {
   type NavigationMatch,
 } from "@/editor/navigationProviders";
 export { registerRelatedProvider, type RelatedContext, type RelatedItem } from "@/editor/relatedProviders";
-export { offsetsToRange, offsetToPos, posToOffset, rangeToOffsets } from "@/editor/lsp/positions";
+export { offsetsToRange, offsetToPos, posToOffset, rangeToOffsets, textEditsToChanges } from "@/editor/lsp/positions";
 
 /** Documents above this size (UTF-16 units) skip per-line decorations. */
 export const HEAVY_LIMIT = 8_000_000;
@@ -896,6 +896,10 @@ export interface DocumentAttachment {
   /** The document's context, as editor contributions receive it. */
   context(): EditorDocContext;
   readOnly: boolean;
+  /** Watch read-only state even when this attachment has no mounted view. */
+  subscribeReadOnly(listener: () => void): () => void;
+  /** Edits from other views or the backend, in the coordinates of the previous text. */
+  subscribeExternalChanges(listener: (changes: ChangeSet) => void): () => void;
   /** Last view state, kept current while unmounted; use it when remounting this attachment. */
   editorState(): EditorState | null;
   /** Dispatch typing through the document history when `sharedHistory` was requested. */
@@ -917,8 +921,8 @@ export interface DocumentAttachment {
   /**
    * Applies a change made by this view's owner as one edit of the document's
    * history (where `undo` works): the text editor tab's when one shows the
-   * file, so Undo there reverts it too; else this view's. The view receives
-   * it like any other change of the document, before this returns.
+   * file, so Undo there reverts it too; else this view's. Before either exists,
+   * applies the edit directly to the document.
    */
   edit(changes: ChangeSpec, userEvent?: string): void;
   /** Detach; the document closes when nothing else shows it. */
