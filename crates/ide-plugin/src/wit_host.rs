@@ -112,6 +112,46 @@ pub(crate) mod hover_actions_bindings {
     });
 }
 
+/// The optional `completion-list-provider` export (API 1.16), bound on its own when present.
+pub(crate) mod completion_list_bindings {
+    wasmtime::component::bindgen!({
+        world: "plugin-completion-list",
+        path: "../../wit",
+        imports: { default: trappable },
+        with: {
+            "openidea:plugin/types": super::bindings::openidea::plugin::types,
+            "openidea:plugin/log": super::bindings::openidea::plugin::log,
+            "openidea:plugin/ui": super::bindings::openidea::plugin::ui,
+            "openidea:plugin/storage": super::bindings::openidea::plugin::storage,
+            "openidea:plugin/workspace": super::bindings::openidea::plugin::workspace,
+            "openidea:plugin/editor": super::bindings::openidea::plugin::editor,
+            "openidea:plugin/decorations": super::bindings::openidea::plugin::decorations,
+            "openidea:plugin/invocation": super::bindings::openidea::plugin::invocation,
+            "openidea:plugin/vcs": super::bindings::openidea::plugin::vcs,
+            "openidea:plugin/build": super::bindings::openidea::plugin::build,
+            "openidea:plugin/commit": super::bindings::openidea::plugin::commit,
+            "openidea:plugin/events": super::bindings::openidea::plugin::events,
+            "openidea:plugin/tasks": super::bindings::openidea::plugin::tasks,
+            "openidea:plugin/diagnostics": super::bindings::openidea::plugin::diagnostics,
+            "openidea:plugin/net": super::bindings::openidea::plugin::net,
+            "openidea:plugin/secrets": super::bindings::openidea::plugin::secrets,
+            "openidea:plugin/run": super::bindings::openidea::plugin::run,
+            "openidea:plugin/process": super::bindings::openidea::plugin::process,
+            "openidea:plugin/output": super::bindings::openidea::plugin::output,
+            "openidea:plugin/auth": super::bindings::openidea::plugin::auth,
+            "openidea:plugin/command-runner": super::bindings::openidea::plugin::command_runner,
+            "openidea:plugin/language-servers": super::bindings::openidea::plugin::language_servers,
+            "openidea:plugin/ipc": super::bindings::openidea::plugin::ipc,
+            "openidea:plugin/fs": super::bindings::openidea::plugin::fs,
+            "openidea:plugin/views": super::bindings::openidea::plugin::views,
+            "openidea:plugin/settings": super::bindings::openidea::plugin::settings,
+            "openidea:plugin/database": super::bindings::openidea::plugin::database,
+            "openidea:plugin/mcp": super::bindings::openidea::plugin::mcp,
+            "openidea:plugin/extensions": super::bindings::openidea::plugin::extensions,
+        },
+    });
+}
+
 /// The optional `providers` export.
 pub(crate) mod providers_bindings {
     wasmtime::component::bindgen!({
@@ -2762,6 +2802,23 @@ fn diagnostic_to_wit(d: ide_core::Diagnostic) -> diagnostics::Diagnostic {
         related: Vec::new(),
     }
 }
+impl StoreData {
+    /// Shared by `set` and `set-markdown`: both replace the same set-id namespace.
+    fn replace_decorations(&mut self, path: String, set_id: String, items: Vec<crate::Decoration>) -> Fallible<()> {
+        if let Err(e) = self.require(Capability::ProjectRead) {
+            return Ok(Err(e));
+        }
+        if items.len() > 10_000 {
+            return Ok(Err(wit::Error::Invalid("at most 10000 decorations per file".into())));
+        }
+        let real = match self.decoration_path(&path) {
+            Ok(real) => real,
+            Err(e) => return Ok(Err(e)),
+        };
+        Ok(self.host.decorations(Some(&real), &set_id, items).map_err(to_wit))
+    }
+}
+
 impl bindings::openidea::plugin::decorations::Host for StoreData {
     fn set(
         &mut self,
@@ -2769,21 +2826,35 @@ impl bindings::openidea::plugin::decorations::Host for StoreData {
         set_id: String,
         items: Vec<bindings::openidea::plugin::decorations::Decoration>,
     ) -> Fallible<()> {
-        if let Err(e) = self.require(Capability::ProjectRead) {
-            return Ok(Err(e));
-        }
-        if items.len() > 10_000 {
-            return Ok(Err(wit::Error::Invalid("at most 10000 decorations per file".into())));
-        }
         let items = items
             .into_iter()
-            .map(|d| crate::Decoration { range: core_range(d.range), style: d.style, hover: d.hover, after: d.after })
+            .map(|d| crate::Decoration {
+                range: core_range(d.range),
+                style: d.style,
+                hover: d.hover,
+                after: d.after,
+                markdown_hover: None,
+            })
             .collect();
-        let real = match self.decoration_path(&path) {
-            Ok(real) => real,
-            Err(e) => return Ok(Err(e)),
-        };
-        Ok(self.host.decorations(Some(&real), &set_id, items).map_err(to_wit))
+        self.replace_decorations(path, set_id, items)
+    }
+    fn set_markdown(
+        &mut self,
+        path: String,
+        set_id: String,
+        items: Vec<bindings::openidea::plugin::decorations::MarkdownDecoration>,
+    ) -> Fallible<()> {
+        let items = items
+            .into_iter()
+            .map(|d| crate::Decoration {
+                range: core_range(d.range),
+                style: d.style,
+                hover: d.hover,
+                after: d.after,
+                markdown_hover: d.markdown_hover,
+            })
+            .collect();
+        self.replace_decorations(path, set_id, items)
     }
     fn clear(&mut self, set_id: String) -> Fallible<()> {
         if let Err(e) = self.require(Capability::ProjectRead) {
