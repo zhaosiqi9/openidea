@@ -900,6 +900,18 @@ export const commands = {
 	lspDocumentHighlights: (doc: DocId, pos: Pos) => typedError<Highlight[], IdeError>(__TAURI_INVOKE("lsp_document_highlights", { doc, pos })),
 	/**  Links in a document (`href`s, Markdown links, `#include`s…) from its language servers. */
 	lspDocumentLinks: (doc: DocId) => typedError<DocumentLink[], IdeError>(__TAURI_INVOKE("lsp_document_links", { doc })),
+	/**
+	 *  Sets an argument of the call at `pos`; the edit reaches the document as the server's
+	 *  `workspace/applyEdit`, undoable like any other.
+	 */
+	lspEditArgument: (doc: DocId, pos: Pos, name: string, value: boolean | number | number | null | string | null) => typedError<null, IdeError>(__TAURI_INVOKE("lsp_edit_argument", { doc, pos, name, value })),
+	/**  The Flutter Property Editor's arguments of the call at `pos`. */
+	lspEditableArguments: (doc: DocId, pos: Pos) => typedError<{
+	/**  The widget's (or callee's) name. */
+	name: string | null,
+	documentation: string | null,
+	arguments: EditableArgument[],
+} | null, IdeError>(__TAURI_INVOKE("lsp_editable_arguments", { doc, pos })),
 	/**  The Throwable class the caret at `pos` names, for the exception breakpoint intention. */
 	lspExceptionClassAt: (request: RequestId, doc: DocId, pos: Pos) => typedError<{
 	/**  The binary name (`app.Outer$Failure`), as exception breakpoints take it. */
@@ -3619,6 +3631,9 @@ export type ArduinoSettings = {
 	cliConfig?: string,
 	fqbn?: string,
 };
+
+/**  A literal argument value. Ints stay ints: the server rejects `1.0` for an `int` parameter. */
+export type ArgumentValue = boolean | number | number | null | string;
 
 /**  Packaging artifact definition (Project Structure › Artifacts). */
 export type ArtifactConfig = {
@@ -6441,6 +6456,36 @@ export type DynamicItem = {
 	checked?: boolean | null,
 };
 
+export type EditableArgument = {
+	name: string,
+	documentation: string | null,
+	/**  How to edit it: `string`, `int`, `double`, `bool` or `enum`. */
+	type: string,
+	/**  The literal value in the code (only while `has_argument`); an expression has `display_value`. */
+	value: ArgumentValue | null,
+	hasArgument?: boolean,
+	defaultValue: ArgumentValue | null,
+	displayValue: string | null,
+	isRequired?: boolean,
+	isNullable?: boolean,
+	isDeprecated?: boolean,
+	isEditable?: boolean,
+	notEditableReason: string | null,
+	/**  An enum's values, as `EnumName.value`. */
+	options: string[] | null,
+};
+
+/**
+ *  The arguments the Flutter Property Editor edits: those of the widget (or other) call at a
+ *  position, as the Dart server's `dart/textDocument/editableArguments` reports them.
+ */
+export type EditableArguments = {
+	/**  The widget's (or callee's) name. */
+	name: string | null,
+	documentation: string | null,
+	arguments: EditableArgument[],
+};
+
 /**  Editor › General › Appearance. */
 export type EditorAppearanceSettings = {
 	caretBlinking?: boolean,
@@ -7403,6 +7448,11 @@ export type GeneratorInfo = {
 	/**  Offer "Create Git repository". */
 	git: boolean,
 	fields: Field[],
+	/**
+	 *  The project folder's name when it isn't the project name: a template over the fields
+	 *  shown (a hidden field has its default), like [`Field::default`]; empty renders the name.
+	 */
+	directory: string | null,
 	/**  More fields come from `scaffold_options` (a project service's metadata). */
 	dynamic: boolean,
 };
