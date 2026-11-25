@@ -391,6 +391,7 @@ export const commands = {
 	dbSources: () => typedError<DataSource_Serialize[], IdeError>(__TAURI_INVOKE("db_sources")),
 	dbStatements: (id: string, text: string, from: number, to: number) => typedError<SqlStatement[], IdeError>(__TAURI_INVOKE("db_statements", { id, text, from, to })),
 	dbTableDetails: (id: string, schema: string, table: string) => typedError<DbTableDetails, IdeError>(__TAURI_INVOKE("db_table_details", { id, schema, table })),
+	dbTableGrants: (id: string, schema: string, table: string) => typedError<DbTableGrant[], IdeError>(__TAURI_INVOKE("db_table_grants", { id, schema, table })),
 	dbTablePage: (request: RequestId, id: string, schema: string, table: string, filter: string | null, sort: DbSortKey[], offset: number, limit: number) => typedError<DbTablePage, IdeError>(__TAURI_INVOKE("db_table_page", { request, id, schema, table, filter, sort, offset, limit })),
 	dbTables: (id: string, schema: string) => typedError<DbTableInfo[], IdeError>(__TAURI_INVOKE("db_tables", { id, schema })),
 	dbTest: (source: DataSource_Deserialize, password: string | null, sshSecret: string | null) => typedError<string, IdeError>(__TAURI_INVOKE("db_test", { source, password, sshSecret })),
@@ -847,7 +848,8 @@ export const commands = {
 	/**
 	 *  The JVM of OpenIDEA's JUnit runner for the module at `module`, given its resolved test classpath:
 	 *  the classpath with the runner and `junit-platform-launcher` of the engine's version (unless the
-	 *  classpath has one; from the engine's repository, else downloaded once from Maven Central), and,
+	 *  classpath has one, or has JUnit 4 alone; from the engine's repository, else downloaded once from
+	 *  Maven Central), and,
 	 *  for a Maven module, what its Surefire configuration gives the forked test JVM.
 	 */
 	javaJunitRunner: (module: string, classPaths: string[]) => typedError<JunitLaunch, IdeError>(__TAURI_INVOKE("java_junit_runner", { module, classPaths })),
@@ -2265,6 +2267,9 @@ export const commands = {
 	vcsWorktrees: (repo: string | null) => typedError<Worktree[], IdeError>(__TAURI_INVOKE("vcs_worktrees", { repo })),
 	/**  Create Patch › Save to file. */
 	vcsWritePatch: (path: string, patch: string, encoding: string | null) => typedError<null, IdeError>(__TAURI_INVOKE("vcs_write_patch", { path, patch, encoding })),
+	webBrowserControl: (session: RequestId, action: BrowserAction) => typedError<BrowserStatus, IdeError>(__TAURI_INVOKE("web_browser_control", { session, action })),
+	/**  Creates a private localhost browser session owned by this window and project. */
+	webBrowserOpen: (url: string, session: RequestId) => typedError<null, IdeError>(__TAURI_INVOKE("web_browser_open", { url, session })),
 	/**  The browsers installed on this machine. */
 	webBrowsers: () => typedError<Browser[], IdeError>(__TAURI_INVOKE("web_browsers")),
 	/**  The web reference at `pos` of `doc` and its targets; `None` when there is no reference. */
@@ -3036,8 +3041,6 @@ export type AgentSettings_Deserialize = {
 	showUsageLimits?: boolean,
 	/**  What the session has cost so far, as the agent reports it. */
 	showCost?: boolean,
-	/**  A finished turn's work folds into one line under its message, leaving the reply. */
-	foldTurns?: boolean,
 	/**  Streaming text is revealed at a steady pace rather than chunk by chunk. */
 	smoothText?: boolean,
 	/**  Conversations and the composer expand to the full width of the pane instead of staying in a centred column. */
@@ -3081,8 +3084,6 @@ export type AgentSettings_Serialize = {
 	showUsageLimits: boolean,
 	/**  What the session has cost so far, as the agent reports it. */
 	showCost: boolean,
-	/**  A finished turn's work folds into one line under its message, leaving the reply. */
-	foldTurns: boolean,
 	/**  Streaming text is revealed at a steady pace rather than chunk by chunk. */
 	smoothText: boolean,
 	/**  Conversations and the composer expand to the full width of the pane instead of staying in a centred column. */
@@ -3509,6 +3510,8 @@ export type AppearanceSettings_Deserialize = {
 	contrastScrollbars?: boolean,
 	/**  Adjust colours for red-green vision deficiency. */
 	redGreenVision?: boolean,
+	/**  Turn off animations and transitions (also on when the OS asks for reduced motion). */
+	reduceMotion?: boolean,
 	differentToolWindowBackground?: boolean,
 	compactMode?: boolean,
 	/**  IDEA "Use smaller indents in trees": tool window trees indent less per level. */
@@ -3584,6 +3587,8 @@ export type AppearanceSettings_Serialize = {
 	contrastScrollbars: boolean,
 	/**  Adjust colours for red-green vision deficiency. */
 	redGreenVision: boolean,
+	/**  Turn off animations and transitions (also on when the OS asks for reduced motion). */
+	reduceMotion: boolean,
 	differentToolWindowBackground: boolean,
 	compactMode: boolean,
 	/**  IDEA "Use smaller indents in trees": tool window trees indent less per level. */
@@ -3921,6 +3926,26 @@ export type Browser = {
 	/**  `chrome`, `firefox`, `safari`, `edge`, `brave`, `chromium`. */
 	id: string,
 	name: string,
+};
+
+export type BrowserAction = { type: "navigate"; url: string } | { type: "back" } | { type: "forward" } | { type: "reload" } | { type: "inspect" } | { type: "cancel" } | { type: "layout"; bounds: BrowserBounds | null } | { type: "status" };
+
+/**  CSS pixels measured from the top left of the workbench viewport, along with the viewport size. */
+export type BrowserBounds = {
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+	viewportWidth: number | null,
+	viewportHeight: number | null,
+};
+
+export type BrowserStatus = {
+	url: string,
+	canBack: boolean,
+	canForward: boolean,
+	inspecting: boolean,
+	element: InspectedElement | null,
 };
 
 export type BuildEvent = 
@@ -5589,6 +5614,17 @@ export type DbTableDetails = {
 	triggers: DbTriggerInfo[],
 };
 
+/**
+ *  One object privilege on a table: `grantee` may run `privilege` (`SELECT`, …), granted
+ *  by `grantor` (unknown on MySQL), and may grant it on when `grantable`.
+ */
+export type DbTableGrant = {
+	grantee: string,
+	grantor: string | null,
+	privilege: string,
+	grantable: boolean,
+};
+
 export type DbTableInfo = {
 	name: string,
 	kind: DbTableKind,
@@ -5783,6 +5819,14 @@ export type Decoration = {
 	 *  plain-text fallback shown when this is absent.
 	 */
 	markdownHover: string | null,
+	/**  The item's own colors (API 1.17 `set-styled`), validated `#rrggbb` / `#rrggbbaa`. */
+	colors?: DecorationColors | null,
+};
+
+/**  Colors of a styled editor decoration (API 1.17). */
+export type DecorationColors = {
+	foreground: string | null,
+	background: string | null,
 };
 
 /**  A plugin-owned editor or project-tree decoration set for one file. */
@@ -8526,6 +8570,12 @@ export type InspectSummary = {
 	failed: number,
 	cancelled: boolean,
 	elapsedMs: number,
+};
+
+export type InspectedElement = {
+	selector: string,
+	html: string,
+	styles: string,
 };
 
 export type InspectedFile = {
@@ -13937,10 +13987,10 @@ export type ToolCallDisplay =
 "each";
 
 /**
- *  Tools › Download sources: a mirror the installer tries when `github.com` is slow or
- *  unreachable.
+ *  Tools › Download sources: mirrors the installer tries, in order, when `github.com` is slow
+ *  or unreachable.
  * 
- *  The mirror is a proxy prefix: the official URL is appended to it unchanged
+ *  A mirror is a proxy prefix: the official URL is appended to it unchanged
  *  (`https://mirror.example/https://github.com/o/r/releases/download/…`), which is what the
  *  public GitHub proxies speak. Only `github.com` downloads are affected — those proxies
  *  hard-code that host, so Eclipse JDT LS and Open VSX keep their official addresses. Empty by
@@ -13948,8 +13998,9 @@ export type ToolCallDisplay =
  */
 export type ToolDownloadSettings = {
 	/**
-	 *  Proxy prefix prepended to `https://github.com/…` archive addresses only; empty keeps
-	 *  every download on its official host.
+	 *  Proxy prefixes prepended to `https://github.com/…` archive addresses only, separated by
+	 *  commas or whitespace and tried in order before the official host; empty keeps every
+	 *  download on its official host.
 	 */
 	githubMirror?: string,
 };
