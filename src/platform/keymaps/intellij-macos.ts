@@ -121,6 +121,7 @@ export const intellijMacos: Record<string, string[]> = {
   "code.surroundWith": ["Meta+Alt+T"],
   "code.insertLiveTemplate": ["Meta+J"],
   "code.surroundWithLiveTemplate": ["Meta+Alt+J"],
+  "code.saveAsLiveTemplate": [],
   "code.fold": ["Meta+-"],
   "code.unfold": ["Meta+="],
   "code.foldAll": ["Meta+Shift+-"],
@@ -423,6 +424,7 @@ export const intellijMacos: Record<string, string[]> = {
   "diff.focusOppositePane": ["Ctrl+Shift+Tab"],
   // After Show Diff: ⌘D is Compare With… in the project view.
   "project.compareWith": ["Meta+D"],
+  "diff.compareFileWithEditor": [],
   // Editing extras, image viewer (keyWhen: image focused) and Markdown editor layouts
   "code.cyclicExpandWord": ["Alt+/"],
   "code.cyclicExpandWordBackward": ["Alt+Shift+/"],

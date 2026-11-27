@@ -31,6 +31,7 @@ describe("IDEA keymap parity", () => {
     ["code.quickDefinition", ["Alt+Space", "Meta+Y"], ["Ctrl+Shift+I"]],
     ["editor.copyPathReference", ["Meta+Shift+C"], ["Ctrl+Shift+C"]],
     ["project.open", ["F4", "Meta+Down"], ["F4"]],
+    ["diff.compareFileWithEditor", [], []],
     // Diff.OpenInEditor copies EditSource's shortcuts.
     ["diff.jumpToSource", ["F4", "Meta+Down"], ["F4"]],
     ["project.delete", ["Delete", "Backspace", "Meta+Backspace"], ["Delete"]],
@@ -133,6 +134,7 @@ describe("IDEA keymap parity", () => {
     ["code.moveElementLeft", ["Meta+Alt+Shift+Left"], ["Ctrl+Alt+Shift+Left"]],
     ["code.moveElementRight", ["Meta+Alt+Shift+Right"], ["Ctrl+Alt+Shift+Right"]],
     ["code.surroundWithLiveTemplate", ["Meta+Alt+J"], ["Ctrl+Alt+J"]],
+    ["code.saveAsLiveTemplate", [], []],
     ["navigate.customRegion", ["Meta+Alt+."], ["Ctrl+Alt+."]],
     ["navigate.showFilePath", ["Meta+Alt+F12"], ["Ctrl+Alt+F12"]],
     ["navigate.nextHighlightedUsage", ["Ctrl+Alt+Down"], ["Ctrl+Alt+Down"]],
