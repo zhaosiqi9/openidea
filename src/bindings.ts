@@ -684,7 +684,7 @@ export const commands = {
 	dockerSaveSettings: (settings: DockerSettings) => typedError<null, IdeError>(__TAURI_INVOKE("docker_save_settings", { settings })),
 	/**  Saves (`None`: forgets) a registry's password. */
 	dockerSetRegistryPassword: (id: string, password: string | null) => typedError<null, IdeError>(__TAURI_INVOKE("docker_set_registry_password", { id, password })),
-	/**  Docker connections and registries (app-wide). */
+	/**  Docker connections and registries of the project host. */
 	dockerSettings: () => typedError<DockerSettings, IdeError>(__TAURI_INVOKE("docker_settings")),
 	/**  Availability plus containers, images, volumes and networks. */
 	dockerSnapshot: (endpoint: DockerEndpoint) => typedError<DockerSnapshot, IdeError>(__TAURI_INVOKE("docker_snapshot", { endpoint })),
@@ -3174,6 +3174,20 @@ export type AgentSettings_Deserialize = {
 	smoothText?: boolean,
 	/**  Conversations and the composer expand to the full width of the pane instead of staying in a centred column. */
 	fitWindowWidth?: boolean,
+	/**  Chat text follows the interface font (Appearance › Use custom font). */
+	chatUseUiFont?: boolean,
+	/**  Chat text family when it does not follow the interface font. */
+	chatFontFamily?: string,
+	/**  Covers characters the chat font lacks. */
+	chatFontFallback?: string,
+	chatFontSize?: number,
+	/**  Code in chat follows the built-in code font. */
+	codeUseDefaultFont?: boolean,
+	/**  Code family when it does not follow the built-in code font. */
+	codeFontFamily?: string,
+	/**  Covers characters the code font lacks. */
+	codeFontFallback?: string,
+	codeFontSize?: number,
 	thinking?: ThinkingDisplay,
 	toolCalls?: ToolCallDisplay,
 	/**  A tool call's output (a command's, a diff) is shown without opening it. */
@@ -3217,6 +3231,20 @@ export type AgentSettings_Serialize = {
 	smoothText: boolean,
 	/**  Conversations and the composer expand to the full width of the pane instead of staying in a centred column. */
 	fitWindowWidth: boolean,
+	/**  Chat text follows the interface font (Appearance › Use custom font). */
+	chatUseUiFont: boolean,
+	/**  Chat text family when it does not follow the interface font. */
+	chatFontFamily: string,
+	/**  Covers characters the chat font lacks. */
+	chatFontFallback: string,
+	chatFontSize: number,
+	/**  Code in chat follows the built-in code font. */
+	codeUseDefaultFont: boolean,
+	/**  Code family when it does not follow the built-in code font. */
+	codeFontFamily: string,
+	/**  Covers characters the code font lacks. */
+	codeFontFallback: string,
+	codeFontSize: number,
 	thinking: ThinkingDisplay,
 	toolCalls: ToolCallDisplay,
 	/**  A tool call's output (a command's, a diff) is shown without opening it. */
@@ -5334,6 +5362,8 @@ export type DbCompletionColumn = {
 	primaryKey: boolean,
 	/**  Has a default (or is generated): optional in INSERT. */
 	hasDefault: boolean,
+	/**  The column's comment; `None` when it has none, or the engine keeps no comments. */
+	comment?: string | null,
 };
 
 export type DbCompletionTable = {
@@ -5761,6 +5791,8 @@ export type DbTableGrant = {
 export type DbTableInfo = {
 	name: string,
 	kind: DbTableKind,
+	/**  The table's or view's comment; `None` when it has none, or the engine keeps no comments. */
+	comment?: string | null,
 };
 
 export type DbTableKind = "table" | "view" | "materializedView";

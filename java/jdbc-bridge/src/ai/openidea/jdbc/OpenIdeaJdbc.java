@@ -138,24 +138,24 @@ public final class OpenIdeaJdbc {
         String catalog = catalogs && !name.isEmpty() ? name : connection.getCatalog();
         String schema = catalogs || name.isEmpty() ? null : pattern(m, name);
         if (op.equals("tables")) {
-            header(out, "name", "kind");
+            header(out, "name", "kind", "comment");
             try (ResultSet rs = m.getTables(catalog, schema, "%", null)) {
                 int n = 0;
                 while (rs.next() && n < 20000) {
                     String type = rs.getString("TABLE_TYPE").toLowerCase(Locale.ROOT);
                     if (!Set.of("table","base table","view","materialized view","system table","local temporary","foreign table").contains(type)) continue;
-                    row(out, rs.getString("TABLE_NAME"), type);
+                    row(out, rs.getString("TABLE_NAME"), type, rs.getString("REMARKS"));
                     n++;
                 }
             }
         } else if (op.equals("schemaColumns")) {
             // Every column of the namespace in one call (SQL completion), without primary keys.
-            header(out, "table", "name", "type", "nullable", "default");
+            header(out, "table", "name", "type", "nullable", "default", "comment");
             try (ResultSet rs = m.getColumns(catalog, schema, "%", "%")) {
                 int n = 0;
                 while (rs.next() && n < 100000) {
                     row(out, rs.getString("TABLE_NAME"), rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME"),
-                        rs.getInt("NULLABLE") == 0 ? "0" : "1", rs.getString("COLUMN_DEF"));
+                        rs.getInt("NULLABLE") == 0 ? "0" : "1", rs.getString("COLUMN_DEF"), rs.getString("REMARKS"));
                     n++;
                 }
             }

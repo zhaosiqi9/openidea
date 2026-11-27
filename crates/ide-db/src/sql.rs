@@ -95,46 +95,52 @@ pub fn schemas(driver: DbDriver, system: bool) -> &'static str {
     }
 }
 
-/// Rows: `name, kind` where kind is `table`, `view` or `materialized view`.
+/// Rows: `name, kind, comment` where kind is `table`, `view` or `materialized view`.
 pub fn tables(driver: DbDriver, schema: &str) -> String {
     match driver {
         DbDriver::Jdbc => unreachable!("JDBC introspection uses DatabaseMetaData"),
         DbDriver::Clickhouse => format!(
             "SELECT name, CASE engine WHEN 'View' THEN 'view' WHEN 'MaterializedView' THEN 'materialized view' \
-             WHEN 'WindowView' THEN 'view' ELSE 'table' END FROM system.tables \
+             WHEN 'WindowView' THEN 'view' ELSE 'table' END, comment FROM system.tables \
              WHERE database = {} AND is_temporary = 0 ORDER BY name",
             quote_literal(driver, schema)
         ),
         DbDriver::Sqlite => format!(
-            "SELECT name, type FROM {}.sqlite_master WHERE type IN ('table', 'view') \
+            "SELECT name, type, NULL FROM {}.sqlite_master WHERE type IN ('table', 'view') \
              AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name",
             quote_ident(driver, schema)
         ),
         DbDriver::Snowflake => format!(
             "SELECT table_name, CASE table_type WHEN 'VIEW' THEN 'view' WHEN 'MATERIALIZED VIEW' THEN 'materialized view' \
-             ELSE 'table' END FROM information_schema.tables WHERE table_schema = {} ORDER BY 1",
+             ELSE 'table' END, comment FROM information_schema.tables WHERE table_schema = {} ORDER BY 1",
             quote_literal(driver, schema)
         ),
         DbDriver::Oracle => format!(
-            "SELECT table_name, 'table' FROM all_tables WHERE owner = {} \
-             UNION ALL SELECT view_name, 'view' FROM all_views WHERE owner = {} ORDER BY 1",
-            quote_literal(driver, schema),
+            "SELECT table_name, CASE WHEN table_type = 'VIEW' THEN 'view' ELSE 'table' END, comments \
+             FROM all_tab_comments WHERE owner = {} ORDER BY 1",
             quote_literal(driver, schema)
         ),
         DbDriver::Postgres => format!(
-            "SELECT c.relname, CASE c.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END \
+            "SELECT c.relname, CASE c.relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END, \
+             obj_description(c.oid, 'pg_class') \
              FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
              WHERE n.nspname = {} AND c.relkind IN ('r', 'v', 'm', 'p', 'f') ORDER BY 1",
             quote_literal(driver, schema)
         ),
         DbDriver::Mysql => format!(
-            "SELECT table_name, CASE WHEN table_type LIKE '%VIEW%' THEN 'view' ELSE 'table' END \
+            "SELECT table_name, CASE WHEN table_type LIKE '%VIEW%' THEN 'view' ELSE 'table' END, \
+             CASE WHEN table_type LIKE '%VIEW%' THEN NULL ELSE NULLIF(table_comment, '') END \
              FROM information_schema.tables WHERE table_schema = {} ORDER BY 1",
             quote_literal(driver, schema)
         ),
         DbDriver::SqlServer => format!(
-            "SELECT TABLE_NAME, CASE WHEN TABLE_TYPE LIKE '%VIEW%' THEN 'view' ELSE 'table' END \
-             FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = {} ORDER BY 1",
+            "SELECT t.TABLE_NAME, CASE WHEN t.TABLE_TYPE LIKE '%VIEW%' THEN 'view' ELSE 'table' END, \
+             CAST(ep.value AS nvarchar(max)) \
+             FROM INFORMATION_SCHEMA.TABLES t \
+             LEFT JOIN sys.extended_properties ep \
+               ON ep.major_id = OBJECT_ID(QUOTENAME(t.TABLE_SCHEMA) + '.' + QUOTENAME(t.TABLE_NAME)) \
+               AND ep.minor_id = 0 AND ep.name = 'MS_Description' \
+             WHERE t.TABLE_SCHEMA = {} ORDER BY 1",
             quote_literal(driver, schema)
         ),
     }
@@ -301,7 +307,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
             "SELECT c.database, c.table, CASE t.engine WHEN 'View' THEN 'view' \
              WHEN 'MaterializedView' THEN 'materialized view' WHEN 'WindowView' THEN 'view' ELSE 'table' END, \
              c.name, c.type, CASE WHEN startsWith(c.type, 'Nullable(') \
-             OR startsWith(c.type, 'LowCardinality(Nullable(') THEN 'YES' ELSE 'NO' END, c.is_in_primary_key, 1 \
+             OR startsWith(c.type, 'LowCardinality(Nullable(') THEN 'YES' ELSE 'NO' END, c.is_in_primary_key, 1, c.comment \
              FROM system.columns c JOIN system.tables t ON t.database = c.database AND t.name = c.table \
              WHERE lower(c.database) NOT IN ('system', 'information_schema') AND t.is_temporary = 0",
             "c.database",
@@ -312,7 +318,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
              CASE WHEN p.pk > 0 THEN 1 ELSE 0 END, \
              CASE WHEN p.dflt_value IS NOT NULL THEN 1 \
              WHEN p.pk = 1 AND upper(p.type) = 'INTEGER' \
-             AND (SELECT count(*) FROM pragma_table_info(m.name) k WHERE k.pk > 0) = 1 THEN 1 ELSE 0 END \
+             AND (SELECT count(*) FROM pragma_table_info(m.name) k WHERE k.pk > 0) = 1 THEN 1 ELSE 0 END, NULL \
              FROM sqlite_master m JOIN pragma_table_info(m.name) p \
              WHERE m.type IN ('table', 'view') AND m.name NOT LIKE 'sqlite\\_%' ESCAPE '\\'",
             "'main'",
@@ -325,7 +331,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
                AND a.attnum = ANY(i.indkey)) THEN 1 ELSE 0 END, \
              CASE WHEN a.atthasdef OR EXISTS (SELECT 1 FROM pg_depend d WHERE d.refclassid = 'pg_class'::regclass \
                AND d.refobjid = c.oid AND d.refobjsubid = a.attnum AND d.classid = 'pg_class'::regclass \
-               AND d.deptype = 'i') THEN 1 ELSE 0 END \
+               AND d.deptype = 'i') THEN 1 ELSE 0 END, col_description(c.oid, a.attnum) \
              FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid \
              WHERE c.relkind IN ('r', 'v', 'm', 'p', 'f') AND a.attnum > 0 AND NOT a.attisdropped \
              AND n.nspname NOT IN ('pg_catalog', 'information_schema') \
@@ -336,7 +342,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
         DbDriver::Mysql => (
             "SELECT c.table_schema, c.table_name, CASE WHEN t.table_type LIKE '%VIEW%' THEN 'view' ELSE 'table' END, \
              c.column_name, c.column_type, c.is_nullable, CASE WHEN c.column_key = 'PRI' THEN 1 ELSE 0 END, \
-             CASE WHEN c.column_default IS NOT NULL OR c.extra LIKE '%auto_increment%' THEN 1 ELSE 0 END \
+             CASE WHEN c.column_default IS NOT NULL OR c.extra LIKE '%auto_increment%' THEN 1 ELSE 0 END, c.column_comment \
              FROM information_schema.columns c JOIN information_schema.tables t \
              ON t.table_schema = c.table_schema AND t.table_name = c.table_name \
              WHERE c.table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')",
@@ -351,7 +357,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
                AND k.TABLE_SCHEMA = tc.TABLE_SCHEMA AND k.TABLE_NAME = tc.TABLE_NAME \
                WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.TABLE_SCHEMA = c.TABLE_SCHEMA \
                AND tc.TABLE_NAME = c.TABLE_NAME AND k.COLUMN_NAME = c.COLUMN_NAME) THEN 1 ELSE 0 END, \
-             CASE WHEN c.COLUMN_DEFAULT IS NOT NULL THEN 1 ELSE 0 END \
+             CASE WHEN c.COLUMN_DEFAULT IS NOT NULL THEN 1 ELSE 0 END, NULL \
              FROM INFORMATION_SCHEMA.COLUMNS c JOIN INFORMATION_SCHEMA.TABLES t \
              ON t.TABLE_SCHEMA = c.TABLE_SCHEMA AND t.TABLE_NAME = c.TABLE_NAME \
              WHERE c.TABLE_SCHEMA NOT IN ('sys', 'INFORMATION_SCHEMA')",
@@ -361,7 +367,7 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
         DbDriver::Snowflake => (
             "SELECT c.table_schema, c.table_name, CASE t.table_type WHEN 'VIEW' THEN 'view' \
              WHEN 'MATERIALIZED VIEW' THEN 'materialized view' ELSE 'table' END, c.column_name, c.data_type, \
-             c.is_nullable, 0, CASE WHEN c.column_default IS NOT NULL THEN 1 ELSE 0 END \
+             c.is_nullable, 0, CASE WHEN c.column_default IS NOT NULL THEN 1 ELSE 0 END, c.comment \
              FROM information_schema.columns c JOIN information_schema.tables t \
              ON t.table_schema = c.table_schema AND t.table_name = c.table_name \
              WHERE c.table_schema <> 'INFORMATION_SCHEMA'",
@@ -372,8 +378,10 @@ pub fn completion_columns(driver: DbDriver, scope: CompletionScope) -> String {
             "SELECT c.owner, c.table_name, CASE WHEN v.view_name IS NOT NULL THEN 'view' ELSE 'table' END, \
              c.column_name, c.data_type, DECODE(c.nullable, 'Y', 'YES', 'NO'), \
              CASE WHEN k.column_name IS NOT NULL THEN 1 ELSE 0 END, \
-             CASE WHEN c.data_default IS NOT NULL THEN 1 ELSE 0 END \
+             CASE WHEN c.data_default IS NOT NULL THEN 1 ELSE 0 END, cc.comments \
              FROM all_tab_columns c \
+             LEFT JOIN all_col_comments cc ON cc.owner = c.owner AND cc.table_name = c.table_name \
+             AND cc.column_name = c.column_name \
              LEFT JOIN all_views v ON v.owner = c.owner AND v.view_name = c.table_name \
              LEFT JOIN (SELECT con.owner, con.table_name, kc.column_name FROM all_constraints con \
                JOIN all_cons_columns kc ON kc.owner = con.owner AND kc.table_name = con.table_name \
@@ -988,6 +996,24 @@ mod tests {
         assert!(columns(DbDriver::Mysql, "db", "t").contains("column_comment"));
         assert!(columns(DbDriver::Oracle, "S", "T").contains("all_col_comments"));
         assert!(columns(DbDriver::Clickhouse, "db", "t").contains("is_in_primary_key, comment"));
+        assert!(tables(DbDriver::Postgres, "public").contains("obj_description(c.oid, 'pg_class')"));
+        assert!(tables(DbDriver::Mysql, "db").contains("table_comment"));
+        assert!(tables(DbDriver::Oracle, "S").contains("all_tab_comments"));
+        assert!(tables(DbDriver::Clickhouse, "db").contains("END, comment FROM system.tables"));
+        assert!(tables(DbDriver::SqlServer, "dbo").contains("sys.extended_properties"));
+        // Completion (the hover card of a table or column) carries them too, as the ninth field.
+        let completion = |driver| completion_columns(driver, CompletionScope::All);
+        assert!(completion(DbDriver::Postgres).contains("col_description(c.oid, a.attnum)"));
+        assert!(completion(DbDriver::Mysql).contains("ELSE 0 END, c.column_comment"));
+        assert!(
+            completion(DbDriver::Oracle).contains("cc.comments")
+                && completion(DbDriver::Oracle).contains("all_col_comments")
+        );
+        assert!(completion(DbDriver::Clickhouse).contains("c.is_in_primary_key, 1, c.comment"));
+        assert!(completion(DbDriver::Snowflake).contains("ELSE 0 END, c.comment"));
+        for driver in [DbDriver::Sqlite, DbDriver::SqlServer] {
+            assert!(completion(driver).contains("ELSE 0 END, NULL"), "{driver:?}");
+        }
         let pg = table_comment(DbDriver::Postgres, "public", "o'rders").unwrap();
         assert!(pg.contains("obj_description(c.oid, 'pg_class')") && pg.contains("'o''rders'"), "{pg}");
         assert!(table_comment(DbDriver::Mysql, "db", "t").unwrap().contains("table_comment"));
@@ -1015,6 +1041,7 @@ mod tests {
         assert_eq!(current_schema(driver), Some("SELECT currentDatabase()"));
         let relations = tables(driver, "event's\\db");
         assert!(relations.contains("WHEN 'MaterializedView' THEN 'materialized view'"));
+        assert!(relations.contains(r"END, comment FROM system.tables"));
         assert!(relations.contains(r"WHERE database = 'event''s\\db' AND is_temporary = 0"));
         let fields = columns(driver, "default", "events");
         assert!(fields.starts_with("SELECT name, type, CASE WHEN startsWith(type, 'Nullable(')"));
@@ -1130,6 +1157,7 @@ mod tests {
     #[test]
     fn sqlserver_introspection_queries() {
         assert!(tables(DbDriver::SqlServer, "dbo").contains("INFORMATION_SCHEMA.TABLES"));
+        assert!(tables(DbDriver::SqlServer, "dbo").contains("sys.extended_properties"));
         assert!(columns(DbDriver::SqlServer, "dbo", "t").contains("INFORMATION_SCHEMA.COLUMNS"));
         assert!(indexes(DbDriver::SqlServer, "dbo", "t").contains("sys.indexes"));
         assert!(foreign_keys(DbDriver::SqlServer).contains("sys.foreign_key_columns"));
@@ -1206,8 +1234,10 @@ mod tests {
         assert_eq!(DbDriver::Oracle.default_port(), Some(1521));
         assert!(schemas(DbDriver::Oracle, true).contains("all_users"));
         assert!(schemas(DbDriver::Oracle, false).contains("'MDSYS'"));
-        assert!(tables(DbDriver::Oracle, "hr").contains("all_tables"));
-        assert!(tables(DbDriver::Oracle, "hr").contains("all_views"));
+        let relations = tables(DbDriver::Oracle, "hr");
+        assert!(relations.contains("all_tab_comments"));
+        assert!(relations.contains("table_type = 'VIEW'"));
+        assert!(relations.contains("comments"));
         let cols = columns(DbDriver::Oracle, "hr", "employees");
         assert!(cols.contains("all_tab_columns"));
         assert!(cols.contains("DECODE(c.nullable, 'Y', 'YES', 'NO')"));

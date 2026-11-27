@@ -146,6 +146,10 @@ pub struct SchemaObject {
 pub struct TableInfo {
     pub name: String,
     pub kind: DbTableKind,
+    /// The table's or view's comment; `None` when it has none, or the engine keeps no comments.
+    #[serde(default)]
+    #[specta(optional)]
+    pub comment: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -208,6 +212,10 @@ pub struct CompletionColumn {
     pub primary_key: bool,
     /// Has a default (or is generated): optional in INSERT.
     pub has_default: bool,
+    /// The column's comment; `None` when it has none, or the engine keeps no comments.
+    #[serde(default)]
+    #[specta(optional)]
+    pub comment: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -1103,7 +1111,11 @@ impl DbManager {
             .filter_map(|r| {
                 let mut it = r.into_iter();
                 let name = it.next().flatten()?;
-                Some(TableInfo { name, kind: DbTableKind::from_catalog(it.next().flatten().as_deref()) })
+                Some(TableInfo {
+                    name,
+                    kind: DbTableKind::from_catalog(it.next().flatten().as_deref()),
+                    comment: it.next().flatten().filter(|comment| !comment.is_empty()),
+                })
             })
             .collect())
     }
@@ -1495,6 +1507,7 @@ impl DbManager {
                 nullable: flag(&Some(next())),
                 primary_key: flag(&Some(next())),
                 has_default: flag(&Some(next())),
+                comment: Some(next()).filter(|c| !c.trim().is_empty()),
             };
             if name.is_empty() || column.name.is_empty() {
                 continue;

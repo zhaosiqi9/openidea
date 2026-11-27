@@ -71,7 +71,11 @@ function consoleStartSchema(arg: unknown, id: string): string | undefined {
 
 function useDatabaseHeaderMenu(): MenuItem[] {
   const separate = useDatabase((s) => s.separateProceduresAndFunctions);
-  return [{ kind: "action", action: "db.separateProceduresAndFunctions", checked: separate }];
+  const comments = useDatabase((s) => s.showTableComments);
+  return [
+    { kind: "action", action: "db.separateProceduresAndFunctions", checked: separate },
+    { kind: "action", action: "db.showTableComments", checked: comments },
+  ];
 }
 
 const useDialogOpen = () => useDatabase((s) => !!s.dialog);
@@ -87,6 +91,7 @@ const TABLE_COMMANDS: Array<[TableCommand, string, string, string[]]> = [
   ["exportData", "db.exportData", "Export Data", ["export", "save as"]],
   ["deleteRows", "db.deleteRows", "Delete Rows", ["remove rows"]],
   ["restoreRows", "db.restoreRows", "Restore Rows", ["undelete rows"]],
+  ["revertRows", "db.revertSelected", "Revert Selected", ["revert rows", "discard row changes", "undo"]],
 ];
 
 /** The editor and rows a menu passed (focus has moved to the menu), else the focused grid's. */
