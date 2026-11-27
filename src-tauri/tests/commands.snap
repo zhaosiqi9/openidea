@@ -318,6 +318,8 @@ gh_pr_prepare_diff                           trusted            desktop      bin
 gh_pr_review                                 trusted            desktop      bindings async
 gh_pr_review_comments                        trusted            desktop      bindings async
 gh_pr_view                                   trusted            desktop      bindings async
+gh_project_account_status                    outside_restricted project_host bindings async
+gh_set_project_account                       outside_restricted project_host bindings async
 git_credential_forget                        always             desktop      bindings sync
 git_credentials                              always             desktop      bindings sync
 gradle_dependencies                          trusted            project_host bindings async
@@ -865,12 +867,15 @@ window_group_restore                         always             desktop      bin
 window_group_select                          always             desktop      bindings async
 window_is_fullscreen                         always             desktop      bindings sync
 window_new                                   always             desktop      bindings async
+window_open_clone                            always             desktop      bindings async
 window_open_comparison                       always             desktop      bindings async
+window_open_connect                          always             desktop      bindings async
 window_open_deployment                       always             desktop      bindings async
 window_open_diff                             always             desktop      bindings async
 window_open_editor                           always             desktop      bindings async
 window_open_file_in_new_window               always             desktop      bindings async
 window_open_files                            always             desktop      bindings async
+window_open_new_project                      always             desktop      bindings async
 window_open_project                          always             desktop      bindings async
 window_open_projects                         always             desktop      bindings sync
 window_open_remote                           always             desktop      bindings async

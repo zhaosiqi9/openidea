@@ -9041,6 +9041,7 @@
   "Next Failed Test": "Следующий непройденный тест",
   "Show Test Durations": "Показать длительность тестов",
   "Select First Failed Test When Finished": "Выбирать первый непройденный тест по завершении",
+  "Track Running Test": "Отслеживать выполняемый тест",
   "Test Runner Options": "Параметры запуска тестов",
   "Run '{name}' with Fuzzing": "Запустить '{name}' с фаззингом",
   "Reading…": "Чтение…",
@@ -10178,5 +10179,7 @@
   "SQL INSERT": "SQL INSERT",
   "SQL UPDATE": "SQL UPDATE",
   "SQL DELETE": "SQL DELETE",
-  "Column comment": "Комментарий к столбцу"
+  "Column comment": "Комментарий к столбцу",
+  "Get from Version Control": "Получить из системы контроля версий",
+  "Cannot connect to the remote host": "Не удалось подключиться к удалённому хосту"
 }

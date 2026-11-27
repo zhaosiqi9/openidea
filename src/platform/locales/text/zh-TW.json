@@ -8511,6 +8511,7 @@
   "Previous Failed Test": "上一個失敗的測試",
   "Next Failed Test": "下一個失敗的測試",
   "Select First Failed Test When Finished": "完成後選取第一個失敗的測試",
+  "Track Running Test": "追蹤正在執行的測試",
   "Run '{name}' with Fuzzing": "使用模糊測試執行 '{name}'",
   "Reading…": "正在讀取…",
   "Editing…": "正在編輯…",
@@ -9383,5 +9384,7 @@
   "SQL INSERT": "SQL INSERT 陳述式",
   "SQL UPDATE": "SQL UPDATE 陳述式",
   "SQL DELETE": "SQL DELETE 陳述式",
-  "Column comment": "欄位註解"
+  "Column comment": "欄位註解",
+  "Get from Version Control": "從版本控制取得",
+  "Cannot connect to the remote host": "無法連線到遠端主機"
 }
