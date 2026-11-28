@@ -1576,6 +1576,12 @@ export const commands = {
 	latest: string,
 	/**  Releases with files to install, most recently uploaded first; yanked ones left out. */
 	versions: string[],
+	/**  The project's long description (usually its README). */
+	description: string,
+	/**  Whether `description` is Markdown; otherwise reStructuredText or plain text. */
+	markdown: boolean,
+	/**  The project's web links (Homepage, Documentation, Source, …); `http(s)` only. */
+	links: PypiLink[],
 } | null, IdeError>(__TAURI_INVOKE("pypi_package", { name, request })),
 	/**
 	 *  PyPI project names containing `query`, best match first, 51 at most (50 are shown). Answers from a cached copy of
@@ -1918,8 +1924,11 @@ export const commands = {
 	/**  A package index other than PyPI that installing from `python` uses; `None` for PyPI. */
 	sdkPythonPackageIndex: (python: string, request: RequestId) => typedError<string | null, IdeError>(__TAURI_INVOKE("sdk_python_package_index", { python, request })),
 	sdkPythonPackages: (python: string, outdated: boolean, request: RequestId) => typedError<PythonPackage[], IdeError>(__TAURI_INVOKE("sdk_python_packages", { python, outdated, request })),
-	/**  Installs (`uninstall = false`) or removes a package; output streams through `on_output`. */
-	sdkPythonPip: (python: string, requirement: string, uninstall: boolean, upgrade: boolean, request: RequestId, onOutput: Channel<string>) => typedError<null, IdeError>(__TAURI_INVOKE("sdk_python_pip", { python, requirement, uninstall, upgrade, request, onOutput })),
+	/**
+	 *  Installs (`uninstall = false`, in editable mode with `editable`) or removes a package; output
+	 *  streams through `on_output`.
+	 */
+	sdkPythonPip: (python: string, requirement: string, uninstall: boolean, upgrade: boolean, editable: boolean, request: RequestId, onOutput: Channel<string>) => typedError<null, IdeError>(__TAURI_INVOKE("sdk_python_pip", { python, requirement, uninstall, upgrade, editable, request, onOutput })),
 	/**  The Python interpreters of the recently opened projects, each with its project. */
 	sdkPythonProjectInterpreters: () => typedError<ProjectInterpreter[], IdeError>(__TAURI_INVOKE("sdk_python_project_interpreters")),
 	/**  `sys.path` of the interpreter `python`, for All Interpreters › Show Paths. */
@@ -5377,13 +5386,18 @@ export type DataSource_Serialize = {
 	pluginSourceId?: string | null,
 };
 
+/**  Database › Query Output: where SQL results open. */
+export type DatabaseOutputDestination = "databaseOutput" | "services";
+
 /**  Database settings: Query Execution and SQL Resolution Scopes. */
 export type DatabaseSettings = {
 	/**
 	 *  A console's result sets show under the statements that produced them, in the editor,
-	 *  instead of in the Services view's result tabs.
+	 *  instead of in the output window's result tabs.
 	 */
 	inEditorResults?: boolean,
+	/**  The tool window that receives SQL query output and plans. */
+	outputDestination?: DatabaseOutputDestination,
 	/**
 	 *  Languages & Frameworks › SQL Resolution Scopes: the data source SQL in a file or folder
 	 *  resolves against (completion, inspections, navigation), most specific path first.
@@ -12250,6 +12264,11 @@ export type PushTargetChoices = {
 
 export type PushTargetState = "ready" | "diverged" | "fetchRequired";
 
+export type PypiLink = {
+	label: string,
+	url: string,
+};
+
 export type PypiPackage = {
 	/**  The name as PyPI spells it. */
 	name: string,
@@ -12258,6 +12277,12 @@ export type PypiPackage = {
 	latest: string,
 	/**  Releases with files to install, most recently uploaded first; yanked ones left out. */
 	versions: string[],
+	/**  The project's long description (usually its README). */
+	description: string,
+	/**  Whether `description` is Markdown; otherwise reStructuredText or plain text. */
+	markdown: boolean,
+	/**  The project's web links (Homepage, Documentation, Source, …); `http(s)` only. */
+	links: PypiLink[],
 };
 
 export type PytestFixtureAt = {

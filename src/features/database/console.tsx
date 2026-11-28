@@ -67,6 +67,7 @@ import {
   schemaTreeRows,
   schemaTreeValue,
   sourceIcon,
+  supportsExplain,
   sourceLabel,
   splitTarget,
   targetOf,
@@ -512,17 +513,20 @@ async function executeRange(view: EditorView, path: string, from: number, to: nu
 
 /** Runs the statement at the caret (or the selected ones) of `view`. */
 export async function executeInView(view: EditorView, path: string) {
+  view.focus();
   const sel = view.state.selection.main;
   await executeRange(view, path, sel.from, sel.to);
 }
 
 /** Runs every statement of `view`, in order (stops at the first that fails). */
 export async function executeScriptInView(view: EditorView, path: string) {
+  view.focus();
   await executeRange(view, path, 0, view.state.doc.length);
 }
 
 /** Explain Plan of the statement at the caret (or the first selected one) of `view`. */
 export async function explainInView(view: EditorView, path: string) {
+  view.focus();
   const sel = view.state.selection.main;
   await explainConsole(path, view.state.doc.toString(), sel.from, sel.to);
 }
@@ -880,7 +884,9 @@ function ConsoleBar({ path, view }: { path: string; view: EditorView }) {
   // SQL resolution scopes in the settings can move the console to another data source.
   useProject((s) => s.settings);
   const boundId = bound ? splitTarget(bound).id : null;
-  const driver = sources.find((s) => s.id === boundId)?.driver;
+  const source = sources.find((s) => s.id === boundId);
+  const canExplain = supportsExplain(source);
+  const driver = source?.driver;
   const jdbc = driver === "jdbc";
   const supportsTransactions = driver !== "clickhouse" && !jdbc;
   const switchable = schemaSwitchable(driver);
@@ -950,7 +956,7 @@ function ConsoleBar({ path, view }: { path: string; view: EditorView }) {
       />
       <span className={styles.toolbarSeparator} />
       <IconButton icon="history" title="Browse Query History" disabled={!bound} onClick={() => openHistory(path)} />
-      {!jdbc && (
+      {canExplain && (
         <IconButton
           icon="db-plan"
           title="Explain Plan"

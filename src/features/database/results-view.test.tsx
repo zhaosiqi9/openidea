@@ -14,7 +14,7 @@ import { disableRemote, enableRemote } from "@/platform/remote";
 import { useProject } from "@/platform/project";
 import { installCellActions } from "./cellActions";
 import { getContext } from "@/platform/context";
-import { ResultsView } from "./ResultsView";
+import { ResultsContent, ResultsView } from "./ResultsView";
 import { streamExecution } from "./executeStream.fixture";
 import {
   cancelConsole,
@@ -470,6 +470,22 @@ describe("editable result grid", () => {
     });
     expect(screen.getByRole("gridcell", { name: "Ann" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Submit" }).hasAttribute("disabled")).toBe(true);
+    expect(backend.applyEdits).not.toHaveBeenCalled();
+  });
+
+  it("keeps pinned pending edits when moving the same result between output windows", async () => {
+    const result = show("SELECT * FROM users", [{ name: "id" }, { name: "name" }], [["1", "Ann"]]);
+    const view = render(<ResultsContent path={result.path} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Pin Tab" }));
+    fireEvent.doubleClick(screen.getByRole("gridcell", { name: "Ann" }));
+    const cell = screen.getByRole("textbox", { name: "Edit name" });
+    fireEvent.change(cell, { target: { value: "Bob" } });
+    fireEvent.keyDown(cell, { key: "Enter" });
+
+    view.rerender(<ResultsView />);
+    expect(screen.getByRole("gridcell", { name: "Bob" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Pin Tab" })).toHaveAttribute("aria-pressed", "true");
     expect(backend.applyEdits).not.toHaveBeenCalled();
   });
 
@@ -1281,11 +1297,11 @@ describe("result tab reuse (IDEA: new results replace the console's unpinned tab
     }
   });
 
-  it("routes ClickHouse runs and result operations through the originating SQL editor", async () => {
+  it.each(["clickhouse", "jdbc"] as const)("keeps %s results in their editor session", async (driver) => {
     const first = "/project/console.sql";
     const second = "/project/console_1.sql";
     useDatabase.setState({
-      sources: [{ id: "pg", name: "Local", driver: "clickhouse", readOnly: false }],
+      sources: [{ id: "pg", name: "Local", driver, readOnly: false }],
     });
     backend.resultRow.mockResolvedValue({ status: "ok", data: result([{ name: "v" }], [["1"]]) });
     backend.explain.mockResolvedValue({ status: "ok", data: [] });
@@ -1305,11 +1321,13 @@ describe("result tab reuse (IDEA: new results replace the console's unpinned tab
     await readResultRow(firstResult, 1);
     expect(backend.resultRow.mock.lastCall?.[5]).toBe(first);
 
-    await explainConsole(second, "SELECT 2", 0, 0);
-    expect(backend.explain.mock.lastCall?.[4]).toBe(second);
-    const plan = useDatabase.getState().results.find((tab) => !!tab.plan)!;
-    await rerunResult(plan.id);
-    expect(backend.explain.mock.lastCall?.[4]).toBe(second);
+    if (driver === "clickhouse") {
+      await explainConsole(second, "SELECT 2", 0, 0);
+      expect(backend.explain.mock.lastCall?.[4]).toBe(second);
+      const plan = useDatabase.getState().results.find((tab) => !!tab.plan)!;
+      await rerunResult(plan.id);
+      expect(backend.explain.mock.lastCall?.[4]).toBe(second);
+    }
 
     await runSql("pg", ["SELECT 3"]);
     expect(backend.execute.mock.lastCall?.[7]).toBeNull();
@@ -1349,6 +1367,18 @@ describe("result tab reuse (IDEA: new results replace the console's unpinned tab
       stopWatching();
       editor.mockRestore();
     }
+  });
+
+  it.each([
+    ["duckdb", 1],
+    ["mysql", 0],
+    ["", 0],
+  ] as const)("requests a plan for JDBC vendor %s only when supported", async (vendor, calls) => {
+    useDatabase.setState({ sources: [{ id: "pg", name: "Local", driver: "jdbc", vendor }] });
+    backend.explain.mockResolvedValue({ status: "ok", data: [] });
+    await explainConsole("a.sql", "SELECT 1", 0, 0);
+    expect(backend.explain.mock.calls.map((call) => call[4])).toEqual(calls ? ["a.sql"] : []);
+    expect(useDatabase.getState().results).toHaveLength(calls);
   });
 
   it("never replaces the Query Plan from a run, and appends a new plan beside a pinned one", async () => {
