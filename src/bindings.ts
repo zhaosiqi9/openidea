@@ -1743,6 +1743,13 @@ export const commands = {
 	runCloseStdin: (id: RunId) => typedError<null, IdeError>(__TAURI_INVOKE("run_close_stdin", { id })),
 	/**  Detected configs followed by user-defined ones (user ids win on conflict). */
 	runConfigs: () => typedError<RunConfig_Serialize[], IdeError>(__TAURI_INVOKE("run_configs")),
+	/**
+	 *  The file here of a path a run in a container of `target` printed (`/app/main.py`, a
+	 *  `site-packages` module in a traceback): in a folder of the project the container mounts,
+	 *  or, when `target` is the project interpreter's, in the copy of its libraries. `None`: no
+	 *  such file.
+	 */
+	runContainerPath: (path: string, target: string) => typedError<string | null, IdeError>(__TAURI_INVOKE("run_container_path", { path, target })),
 	runDotnetResolve: (config: RunConfig_Deserialize, debug: boolean) => typedError<RunConfig_Serialize, IdeError>(__TAURI_INVOKE("run_dotnet_resolve", { config, debug })),
 	/**  Variables of the `.env` files a debug launch names, for the debugger to start with. */
 	runEnvFiles: (files: string[]) => typedError<{ [key in string]: string }, IdeError>(__TAURI_INVOKE("run_env_files", { files })),
@@ -7951,6 +7958,11 @@ export type GhApiRequest = {
 	body: string | null,
 	/**  Follow REST `Link` pages; the result is the array of all pages (`--slurp`). */
 	paginate: boolean,
+	/**
+	 *  The repository's GitHub host (`ghe.example.com`); none: gh's default host. `gh api`
+	 *  doesn't take the host from the remote as `gh pr` does.
+	 */
+	host?: string | null,
 };
 
 /**  An authenticated `github.com` account stored in GitHub CLI (`gh`). */

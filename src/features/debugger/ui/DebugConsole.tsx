@@ -38,6 +38,7 @@ import { pushHistory, readHistory, setConsoleHistoryBrowser } from "./expression
 import { useExpressionCompletion } from "./ExpressionCompletion";
 import { findOutputLinks, type OutputLink } from "@/features/run/links";
 import { debugConsoleUrl, openTarget, openUrl, runDirectory } from "@/features/run/navigate";
+import { containerTarget } from "@/features/run/remote";
 import { segmentLine, type SegmentMark } from "@/features/run/segments";
 import styles from "./DebugToolWindow.module.css";
 import { WidestColumns } from "@/platform/consoleColumns";
@@ -56,6 +57,7 @@ const DebugLine = memo(
     rules,
     cwd,
     module,
+    container,
   }: {
     line: ConsoleLine;
     marks?: readonly SegmentMark[];
@@ -64,13 +66,15 @@ const DebugLine = memo(
     cwd: string;
     /** The run's owning module, which picks between same-named files of a multi-module build. */
     module?: string | null;
+    /** The Docker / Compose run target the run is in: its absolute paths are the container's. */
+    container?: string | null;
   }) {
     const spans = rules ? styleSpans(line.spans, rules) : line.spans;
     const segments = segmentLine(spans, line.category === "system" ? [] : findOutputLinks(line.text), marks);
     const activate = (e: MouseEvent, link: OutputLink) => {
       e.preventDefault();
       if (window.getSelection()?.toString()) return;
-      if (link.kind !== "url") void openTarget(link.target, cwd, true, module);
+      if (link.kind !== "url") void openTarget(link.target, cwd, true, module, container);
       else if (!debugConsoleUrl(e, link.url)) void openUrl(link.url);
     };
     if (segments.length === 0) return <>{"\u200B"}</>;
@@ -119,6 +123,7 @@ const DebugLine = memo(
     a.length === b.length &&
     a.cwd === b.cwd &&
     a.module === b.module &&
+    a.container === b.container &&
     a.marks === b.marks &&
     a.rules === b.rules,
 );
@@ -172,6 +177,11 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
   /** Line the next search starts from (the top of the viewport when the query changed). */
   const findAnchor = useRef(0);
   const scrolledMatch = useRef<string | null>(null);
+  /** Row whose current match still has to be scrolled into view sideways, once it renders. */
+  const revealRow = useRef<number | null>(null);
+  /** Set while the reveal scrolls sideways, so that scroll is not taken for reaching the end. */
+  const revealing = useRef(false);
+  const lastScrollTop = useRef(0);
 
   const virtualizer = useVirtualizer({
     count: lines?.length ?? 0,
@@ -202,6 +212,7 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
     [session.launch?.cwd, session.runConfig?.cwd],
   );
   const module = session.runConfig?.module;
+  const container = containerTarget(session.runConfig);
 
   // Find (⌘F): search the whole buffer, not just the rendered rows.
   const found = useMemo(
@@ -242,10 +253,13 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
   };
   const changeQuery = (value: string) => {
     findAnchor.current = topLine();
+    // Typing on may grow the match from the same start: reveal it again.
+    scrolledMatch.current = null;
     setQuery(value);
   };
   const changeOptions = (next: FindOptions) => {
     findAnchor.current = topLine();
+    scrolledMatch.current = null;
     setFindOptions(next);
   };
   const goToMatch = (direction: 1 | -1) => {
@@ -289,7 +303,18 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
     if (scrolledMatch.current === key) return;
     virtualizer.scrollToIndex(current.line, { align: "center" });
     scrolledMatch.current = key;
+    revealRow.current = current.line;
   }, [findOpen, current, virtualizer]);
+  // A virtualized row may mount a render after the scroll above; then bring the match on a wide line into view.
+  useEffect(() => {
+    if (revealRow.current === null) return;
+    const mark = scroller.current?.querySelector(`[data-index="${revealRow.current}"] [data-find-current]`);
+    if (!mark) return;
+    revealRow.current = null;
+    revealing.current = true;
+    mark.scrollIntoView({ block: "nearest", inline: "nearest" });
+    requestAnimationFrame(() => (revealing.current = false));
+  });
 
   const submit = async () => {
     if (readsProgramInput(session)) {
@@ -469,8 +494,10 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
           className={clsx(styles.consoleOutput, !softWrap && styles.noWrap)}
           style={{ ...fontStyle, lineHeight: `${rowHeight}px` }}
           onScroll={(e) => {
-            if (programmatic.current) return;
             const el = e.currentTarget;
+            const sideways = el.scrollTop === lastScrollTop.current;
+            lastScrollTop.current = el.scrollTop;
+            if (programmatic.current || (revealing.current && sideways)) return;
             const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
             if (atEnd !== stick.current) setFollow(atEnd);
           }}
@@ -509,6 +536,7 @@ export function DebugConsole({ session, interactive = true }: { session: DebugSe
                     length={l.text.length}
                     cwd={cwd}
                     module={module}
+                    container={container}
                   />
                 </span>
               );
